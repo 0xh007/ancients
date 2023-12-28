@@ -1,6 +1,7 @@
 use bevy::pbr::{CascadeShadowConfigBuilder, NotShadowCaster};
 use bevy::prelude::*;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
+use rand::Rng;
 
 const PLAYER_SPEED: f32 = 5.0;
 
@@ -8,7 +9,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(PanOrbitCameraPlugin)
-        .add_systems(Startup, setup)
+        .add_systems(Startup, (setup, spawn_forest).chain())
         .add_systems(FixedUpdate, move_player)
         .run();
 }
@@ -39,7 +40,7 @@ fn setup(
 
     // circle plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Circle::new(40.0).into()),
+        mesh: meshes.add(shape::Circle::new(400.0).into()),
         material: materials.add(Color::DARK_GREEN.into()),
         transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
         ..default()
@@ -69,6 +70,26 @@ fn setup(
         },
         Player,
     ));
+}
+
+fn spawn_forest(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let pine_tree_handle = asset_server.load("vegetation/trees/pine/PineTree.glb#Scene0");
+    let number_of_trees = 2000;
+    let ground_radius = 200.0;
+
+    let mut rng = rand::thread_rng();
+
+    for _ in 0..number_of_trees {
+        // Generate random positions within the ground plane
+        let x = rng.gen_range(-ground_radius..ground_radius);
+        let z = rng.gen_range(-ground_radius..ground_radius);
+
+        commands.spawn(SceneBundle {
+            scene: pine_tree_handle.clone(),
+            transform: Transform::from_xyz(x, 0.0, z),
+            ..default()
+        });
+    }
 }
 
 fn move_player(
