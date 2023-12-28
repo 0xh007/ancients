@@ -2,15 +2,18 @@ use bevy::pbr::{CascadeShadowConfigBuilder, NotShadowCaster};
 use bevy::prelude::*;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
+const PLAYER_SPEED: f32 = 5.0;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(PanOrbitCameraPlugin)
         .add_systems(Startup, setup)
+        .add_systems(FixedUpdate, move_player)
         .run();
 }
 
-#[derive(Default)]
+#[derive(Component)]
 struct Player;
 
 fn setup(
@@ -18,7 +21,6 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
-    mut game: ResMut<Game>,
 ) {
     let cascade_shadow_config = CascadeShadowConfigBuilder {
         first_cascade_far_bound: 0.3,
@@ -55,4 +57,53 @@ fn setup(
         cascade_shadow_config,
         ..default()
     });
+
+    let cylinder_human_handle = asset_server.load("humans/Cylinder_Human.glb#Scene0");
+
+    // Player
+    commands.spawn((
+        SceneBundle {
+            scene: cylinder_human_handle,
+            transform: Transform::from_xyz(0.0, 0.0, 0.0),
+            ..default()
+        },
+        Player,
+    ));
+}
+
+fn move_player(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut query: Query<&mut Transform, With<Player>>,
+    time: Res<Time>,
+) {
+    let mut player_transform = query.single_mut();
+    let mut direction_x = 0.0;
+    let mut direction_z = 0.0;
+
+    // Handle horizontal movement
+    if keyboard_input.pressed(KeyCode::A) {
+        direction_x -= 1.0; // Move left
+    }
+    if keyboard_input.pressed(KeyCode::D) {
+        direction_x += 1.0; // Move right
+    }
+
+    // Handle forward/backward movement
+    if keyboard_input.pressed(KeyCode::W) {
+        direction_z += 1.0; // Move forward
+    }
+    if keyboard_input.pressed(KeyCode::S) {
+        direction_z -= 1.0; // Move backward
+    }
+
+    // Calculate the new position
+    let new_position_x =
+        player_transform.translation.x + direction_x * PLAYER_SPEED * time.delta_seconds();
+    let new_position_z =
+        player_transform.translation.z + direction_z * PLAYER_SPEED * time.delta_seconds();
+
+    // Update the player position
+    // You can also add constraints similar to the paddle if needed
+    player_transform.translation.x = new_position_x;
+    player_transform.translation.z = new_position_z;
 }
