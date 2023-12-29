@@ -10,7 +10,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugins(PanOrbitCameraPlugin)
         .add_systems(Startup, setup)
-        .add_systems(Startup, spawn_terrain)
+        .add_systems(Startup, (setup, spawn_forest).chain())
         .add_systems(FixedUpdate, move_player)
         .run();
 }
@@ -71,44 +71,6 @@ fn setup(
         },
         Player,
     ));
-}
-
-fn spawn_terrain(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let grass_tile_handle = asset_server.load("terrain/grass/grass_tile.glb#Scene0");
-    let tree_handle = asset_server.load("vegetation/trees/pine/PineTree.glb#Scene0");
-    let tile_size = 8.0;
-    let map_size = 25;
-    let tree_probability = 0.8;
-    let jiggle_range = 3.0;
-
-    let mut rng = rand::thread_rng();
-
-    for x in 0..map_size {
-        for z in 0..map_size {
-            let tile_x = x as f32 * tile_size;
-            let tile_z = z as f32 * tile_size;
-
-            commands.spawn((SceneBundle {
-                scene: grass_tile_handle.clone(),
-                transform: Transform::from_xyz(tile_x, 0.0, tile_z),
-                ..default()
-            },));
-
-            // Randomly decide whether to spawn a tree
-            if rng.gen::<f32>() < tree_probability {
-                let jiggle_x = rng.gen_range(-jiggle_range..=jiggle_range);
-                let jiggle_z = rng.gen_range(-jiggle_range..=jiggle_range);
-                let tree_x = tile_x + tile_size / 2.0 + jiggle_x;
-                let tree_z = tile_z + tile_size / 2.0 + jiggle_z;
-
-                commands.spawn((SceneBundle {
-                    scene: tree_handle.clone(),
-                    transform: Transform::from_xyz(tree_x, 0.0, tree_z),
-                    ..default()
-                },));
-            }
-        }
-    }
 }
 
 fn spawn_forest(mut commands: Commands, asset_server: Res<AssetServer>) {
