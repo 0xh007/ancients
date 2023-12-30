@@ -2,6 +2,8 @@ use bevy::pbr::{CascadeShadowConfigBuilder, NotShadowCaster};
 use bevy::prelude::*;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use rand::Rng;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy::render::camera::ScalingMode;
 
 const PLAYER_SPEED: f32 = 5.0;
 
@@ -9,14 +11,19 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(PanOrbitCameraPlugin)
+        .add_plugins(WorldInspectorPlugin::new())
         .add_systems(Startup, setup)
+        .add_systems(Startup, setup_camera)
         .add_systems(Startup, spawn_terrain)
-        .add_systems(FixedUpdate, move_player)
+        .add_systems(FixedUpdate, move_player_and_camera)
         .run();
 }
 
 #[derive(Component)]
 struct Player;
+
+#[derive(Component)]
+struct IsoCamera;
 
 fn setup(
     mut commands: Commands,
@@ -30,22 +37,6 @@ fn setup(
         ..default()
     }
     .build();
-
-    commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(0.0, 1.5, 5.0)),
-            ..default()
-        },
-        PanOrbitCamera::default(),
-    ));
-
-    // // circle plane
-    // commands.spawn(PbrBundle {
-    //     mesh: meshes.add(shape::Circle::new(400.0).into()),
-    //     material: materials.add(Color::DARK_GREEN.into()),
-    //     transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-    //     ..default()
-    // });
 
     // Sun
     commands.spawn(DirectionalLightBundle {
@@ -73,11 +64,39 @@ fn setup(
     ));
 }
 
+fn setup_camera(mut commands: Commands) {
+    // commands.spawn((
+    //     Camera3dBundle {
+    //         transform: Transform::from_translation(Vec3::new(0.0, 1.5, 5.0)),
+    //         ..default()
+    //     },
+    //     PanOrbitCamera::default(),
+    // ));
+
+    commands.spawn((
+        Camera3dBundle {
+            projection: OrthographicProjection {
+                // For this example, let's make the screen/window height
+                // correspond to 16.0 world units.
+                scaling_mode: ScalingMode::FixedVertical(16.0),
+                ..default()
+            }.into(),
+            // the distance doesn't really matter for orthographic,
+            // it should look the same (though it might affect
+            // shadows and clipping / culling)
+            transform: Transform::from_xyz(10.0, 12.0, 16.0)
+                .looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+        IsoCamera,
+    ));
+}
+
 fn spawn_terrain(mut commands: Commands, asset_server: Res<AssetServer>) {
     let grass_tile_handle = asset_server.load("terrain/grass/grass_tile.glb#Scene0");
     let tree_handle = asset_server.load("vegetation/trees/pine/PineTree.glb#Scene0");
     let tile_size = 8.0;
-    let map_size = 25;
+    let map_size = 5;
     let tree_probability = 0.8;
     let jiggle_range = 3.0;
 
@@ -131,9 +150,10 @@ fn spawn_forest(mut commands: Commands, asset_server: Res<AssetServer>) {
     }
 }
 
-fn move_player(
+fn move_player_and_camera(
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<&mut Transform, With<Player>>,
+    mut camera_query: Query<&mut Transform, (With<IsoCamera>, Without<Player>)>,
     time: Res<Time>,
 ) {
     let mut player_transform = query.single_mut();
@@ -150,10 +170,10 @@ fn move_player(
 
     // Handle forward/backward movement
     if keyboard_input.pressed(KeyCode::W) {
-        direction_z += 1.0; // Move forward
+        direction_z -= 1.0; // Move forward
     }
     if keyboard_input.pressed(KeyCode::S) {
-        direction_z -= 1.0; // Move backward
+        direction_z += 1.0; // Move backward
     }
 
     // Calculate the new position
@@ -166,4 +186,13 @@ fn move_player(
     // You can also add constraints similar to the paddle if needed
     player_transform.translation.x = new_position_x;
     player_transform.translation.z = new_position_z;
+    
+    if let Ok(mut camera_transform) = camera_query.get_single_mut() {
+        let camera_offset_x = 10.0;
+        let camera_offset_z = 16.0;
+
+        camera_transform.translation.x = player_transform.translation.x + camera_offset_x;
+        camera_transform.translation.z = player_transform.translation.z + camera_offset_z;
+    }
+
 }
