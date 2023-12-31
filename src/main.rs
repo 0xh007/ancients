@@ -19,6 +19,7 @@ fn main() {
         .add_systems(Startup, setup_camera)
         .add_systems(Startup, spawn_terrain)
         .add_systems(FixedUpdate, move_player_and_camera)
+        .add_systems(Update, camera_switching)
         .run();
 }
 
@@ -29,7 +30,10 @@ struct Player;
 struct Human;
 
 #[derive(Component)]
-struct IsoCamera;
+struct MainCamera;
+
+#[derive(Component)]
+struct DebugCamera;
 
 fn setup(
     mut commands: Commands,
@@ -99,16 +103,27 @@ fn setup(
 }
 
 fn setup_camera(mut commands: Commands) {
-    // commands.spawn((
-    //     Camera3dBundle {
-    //         transform: Transform::from_translation(Vec3::new(0.0, 1.5, 5.0)),
-    //         ..default()
-    //     },
-    //     PanOrbitCamera::default(),
-    // ));
+    commands.spawn((
+        Camera3dBundle {
+            camera: Camera {
+                order: 0,
+                is_active: true,
+                ..default()
+            },
+            transform: Transform::from_translation(Vec3::new(0.0, 1.5, 5.0)),
+            ..default()
+        },
+        PanOrbitCamera::default(),
+        DebugCamera,
+    ));
 
     commands.spawn((
         Camera3dBundle {
+            camera: Camera {
+                order: 1,
+                is_active: false,
+                ..default()
+            },
             projection: OrthographicProjection {
                 // For this example, let's make the screen/window height
                 // correspond to 16.0 world units.
@@ -122,8 +137,24 @@ fn setup_camera(mut commands: Commands) {
                 .looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
-        IsoCamera,
+        MainCamera,
     ));
+}
+
+fn camera_switching(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut query: Query<(&mut Camera, &DebugCamera), Without<MainCamera>>,
+    mut query_main: Query<(&mut Camera, &MainCamera), Without<DebugCamera>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Key0) {
+        for (mut camera, _) in query.iter_mut() {
+            camera.is_active = !camera.is_active;
+        }
+
+        for (mut camera, _) in query_main.iter_mut() {
+            camera.is_active = !camera.is_active;
+        }
+    }
 }
 
 fn spawn_terrain(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -185,7 +216,7 @@ fn spawn_forest(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn move_player_and_camera(
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<&mut Transform, With<Player>>,
-    mut camera_query: Query<&mut Transform, (With<IsoCamera>, Without<Player>)>,
+    mut camera_query: Query<&mut Transform, (With<MainCamera>, Without<Player>)>,
     time: Res<Time>,
 ) {
     let mut player_transform = query.single_mut();
