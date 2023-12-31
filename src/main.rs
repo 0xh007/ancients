@@ -2,10 +2,13 @@ use bevy::pbr::{CascadeShadowConfigBuilder, NotShadowCaster};
 use bevy::prelude::*;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use rand::Rng;
+use rand::distributions::{Distribution, Uniform};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy::render::camera::ScalingMode;
 
 const PLAYER_SPEED: f32 = 5.0;
+const MAP_SIZE: i32 = 5;
+const TILE_SIZE: f32 = 8.0;
 
 fn main() {
     App::new()
@@ -21,6 +24,9 @@ fn main() {
 
 #[derive(Component)]
 struct Player;
+
+#[derive(Component)]
+struct Human;
 
 #[derive(Component)]
 struct IsoCamera;
@@ -53,15 +59,43 @@ fn setup(
 
     let cylinder_human_handle = asset_server.load("humans/Cylinder_Human.glb#Scene0");
 
-    // Player
+    let map_center_x = (MAP_SIZE as f32 * TILE_SIZE) / 2.0;
+    let map_center_z = map_center_x;
+
+
+    // Define the range for random positions around the center
+    let position_range = Uniform::from(-5.0..5.0);
+    let mut rng = rand::thread_rng();
+
+    // Spawn the player near the center
+    let player_offset_x = position_range.sample(&mut rng);
+    let player_offset_z = position_range.sample(&mut rng);
     commands.spawn((
         SceneBundle {
-            scene: cylinder_human_handle,
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
+            scene: cylinder_human_handle.clone(),
+            transform: Transform::from_xyz(map_center_x + player_offset_x, 0.0, map_center_z + player_offset_z),
             ..default()
         },
         Player,
     ));
+
+    // Number of additional humans to spawn
+    let num_humans = 10;
+
+    for _ in 0..num_humans {
+        // Generate random positions around the map center
+        let human_offset_x = position_range.sample(&mut rng);
+        let human_offset_z = position_range.sample(&mut rng);
+
+        commands.spawn((
+            SceneBundle {
+                scene: cylinder_human_handle.clone(),
+                transform: Transform::from_xyz(map_center_x + human_offset_x, 0.0, map_center_z + human_offset_z),
+                ..default()
+            },
+            Human,
+        ));
+    }
 }
 
 fn setup_camera(mut commands: Commands) {
@@ -95,17 +129,15 @@ fn setup_camera(mut commands: Commands) {
 fn spawn_terrain(mut commands: Commands, asset_server: Res<AssetServer>) {
     let grass_tile_handle = asset_server.load("terrain/grass/grass_tile.glb#Scene0");
     let tree_handle = asset_server.load("vegetation/trees/pine/PineTree.glb#Scene0");
-    let tile_size = 8.0;
-    let map_size = 5;
     let tree_probability = 0.8;
     let jiggle_range = 3.0;
 
     let mut rng = rand::thread_rng();
 
-    for x in 0..map_size {
-        for z in 0..map_size {
-            let tile_x = x as f32 * tile_size;
-            let tile_z = z as f32 * tile_size;
+    for x in 0..MAP_SIZE {
+        for z in 0..MAP_SIZE {
+            let tile_x = x as f32 * TILE_SIZE;
+            let tile_z = z as f32 * TILE_SIZE;
 
             commands.spawn((SceneBundle {
                 scene: grass_tile_handle.clone(),
@@ -117,8 +149,8 @@ fn spawn_terrain(mut commands: Commands, asset_server: Res<AssetServer>) {
             if rng.gen::<f32>() < tree_probability {
                 let jiggle_x = rng.gen_range(-jiggle_range..=jiggle_range);
                 let jiggle_z = rng.gen_range(-jiggle_range..=jiggle_range);
-                let tree_x = tile_x + tile_size / 2.0 + jiggle_x;
-                let tree_z = tile_z + tile_size / 2.0 + jiggle_z;
+                let tree_x = tile_x + TILE_SIZE / 2.0 + jiggle_x;
+                let tree_z = tile_z + TILE_SIZE / 2.0 + jiggle_z;
 
                 commands.spawn((SceneBundle {
                     scene: tree_handle.clone(),
