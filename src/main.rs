@@ -5,6 +5,7 @@ use rand::Rng;
 use rand::distributions::{Distribution, Uniform};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy::render::camera::ScalingMode;
+use big_brain::prelude::*;
 
 const PLAYER_SPEED: f32 = 5.0;
 const MAP_SIZE: i32 = 5;
@@ -34,6 +35,9 @@ struct MainCamera;
 
 #[derive(Component)]
 struct DebugCamera;
+
+#[derive(Clone, Component, Debug, ActionBuilder)]
+struct Idle;
 
 fn setup(
     mut commands: Commands,
@@ -257,5 +261,22 @@ fn move_player_and_camera(
         camera_transform.translation.x = player_transform.translation.x + camera_offset_x;
         camera_transform.translation.z = player_transform.translation.z + camera_offset_z;
     }
+}
 
+fn idle_action_system(
+    mut query: Query<(&Actor, &mut ActionState, &Idle), Without<Player>>,
+    time: Res<Time>,
+) {
+    for (Actor(actor), mut state, idle) in &mut query {
+        match *state {
+            ActionState::Requested => {
+                // Start idle action
+                *state = ActionState::Executing;
+            }
+            ActionState::Executing => {
+                // Randomly move the NPC
+            }
+            _ => {}
+        }
+    }
 }
